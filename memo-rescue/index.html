@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Memo Rescue | 消えないメモ帳</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#20242d; --text:#eef1f6;
+    --muted:#98a2b3; --accent:#78a9ff; --ok:#60d394; --border:#303744;
+    --danger:#ff6b6b; --shadow:0 12px 32px rgba(0,0,0,.18);
+  }
+  [data-theme="light"]{
+    --bg:#f5f6f8; --panel:#ffffff; --panel2:#f1f3f6; --text:#17191d;
+    --muted:#667085; --accent:#2f6feb; --ok:#168a52; --border:#d9dee7;
+    --danger:#c93b3b; --shadow:0 10px 30px rgba(30,40,60,.08);
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text)}
+  body{font-family:system-ui,-apple-system,"Segoe UI","Yu Gothic UI",sans-serif}
+
+  header{
+    position:sticky;top:0;z-index:20;
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:12px 16px;background:color-mix(in srgb,var(--bg) 90%,transparent);
+    backdrop-filter:blur(12px);border-bottom:1px solid var(--border)
+  }
+
+  .brand{font-weight:850;letter-spacing:.02em}
+  .head-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .status{font-size:13px;color:var(--muted)}
+  .status.ok{color:var(--ok)}
+
+  main{max-width:1180px;margin:auto;padding:18px}
+  .toolbar{
+    display:flex;justify-content:space-between;gap:10px;align-items:center;
+    margin-bottom:14px;flex-wrap:wrap
+  }
+  .buttons{display:flex;gap:8px;flex-wrap:wrap}
+
+  button,.filelabel,select{
+    border:1px solid var(--border);background:var(--panel);color:var(--text);
+    border-radius:10px;padding:9px 12px;cursor:pointer;font:inherit
+  }
+  button:hover,.filelabel:hover,select:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);color:white;border-color:var(--accent)}
+  button.danger{color:var(--danger)}
+  .filelabel{display:inline-flex;align-items:center}
+
+  .tabs{
+    display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:12px
+  }
+  .tab{
+    display:flex;align-items:center;gap:8px;min-width:120px;max-width:240px;
+    background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    padding:9px 10px;cursor:pointer;white-space:nowrap
+  }
+  .tab.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+  .tab-title{overflow:hidden;text-overflow:ellipsis}
+  .tab-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex:none}
+  .tab.active .tab-dot{background:var(--accent)}
+  .tab-close{margin-left:auto;color:var(--muted);font-size:14px;padding:0 2px}
+  .tab-close:hover{color:var(--danger)}
+
+  .editor-card{
+    background:var(--panel);border:1px solid var(--border);border-radius:16px;
+    box-shadow:var(--shadow);overflow:hidden
+  }
+  .title-row{padding:14px 14px 0}
+  #title{
+    width:100%;background:transparent;border:0;border-bottom:1px solid var(--border);
+    color:var(--text);font:inherit;font-size:20px;font-weight:750;
+    padding:7px 2px 12px;outline:none
+  }
+  #title:focus{border-color:var(--accent)}
+
+  textarea{
+    width:100%;height:58vh;resize:vertical;background:transparent;color:var(--text);
+    border:0;padding:16px;font:inherit;font-size:16px;line-height:1.75;outline:none
+  }
+
+  .meta{
+    display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;
+    border-top:1px solid var(--border);padding:10px 14px;color:var(--muted);font-size:13px
+  }
+
+  details{
+    background:var(--panel);border:1px solid var(--border);
+    border-radius:14px;padding:12px 14px;margin-top:14px
+  }
+  summary{cursor:pointer;font-weight:700}
+  .history{display:grid;gap:8px;margin-top:12px}
+  .hist{
+    display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;
+    padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--panel2)
+  }
+  .hist small{color:var(--muted)}
+  .preview{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hint{font-size:13px;line-height:1.6;color:var(--muted)}
+
+  .sync-box{
+    display:grid;gap:8px;margin-top:10px;padding:10px;
+    border:1px dashed var(--border);border-radius:10px;background:var(--panel2)
+  }
+  .sync-line{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .badge{
+    display:inline-flex;align-items:center;border:1px solid var(--border);
+    border-radius:999px;padding:5px 9px;font-size:12px;color:var(--muted)
+  }
+
+  #toast{
+    position:fixed;right:16px;bottom:16px;z-index:50;
+    background:var(--panel);border:1px solid var(--border);color:var(--text);
+    padding:10px 12px;border-radius:10px;box-shadow:var(--shadow);
+    opacity:0;transform:translateY(8px);transition:.2s;pointer-events:none
+  }
+  #toast.show{opacity:1;transform:none}
+
+  @media(max-width:720px){
+    main{padding:12px}
+    textarea{height:56vh}
+    .status{display:none}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Memo Rescue</div>
+  <div class="head-actions">
+    <span id="saveStatus" class="status">読み込み中…</span>
+    <button id="themeBtn" title="白/黒テーマ切替">◐ テーマ</button>
+  </div>
+</header>
+
+<main>
+  <div class="toolbar">
+    <div class="buttons">
+      <button id="newMemoBtn" class="primary">＋ 新しいメモ</button>
+      <button id="snapshotBtn">履歴保存</button>
+    </div>
+    <div class="buttons">
+      <button id="downloadMdBtn">Markdown</button>
+      <button id="downloadTxtBtn">TXT</button>
+    </div>
+  </div>
+
+  <div id="tabs" class="tabs"></div>
+
+  <section class="editor-card">
+    <div class="title-row">
+      <input id="title" type="text" placeholder="タイトル">
+    </div>
+    <textarea id="memo" placeholder="ここに入力。内容は自動保存されます。"></textarea>
+    <div class="meta">
+      <div><span id="chars">0</span>文字 / <span id="lines">1</span>行</div>
+      <div>最終更新: <span id="updated">-</span></div>
+    </div>
+  </section>
+
+  <details>
+    <summary>復元履歴</summary>
+    <p class="hint">現在のメモについて、約30秒ごとに変更履歴を作成します。Ctrl + S でも手動保存できます。</p>
+    <div id="history" class="history"></div>
+  </details>
+
+  <details>
+    <summary>任意の同期・バックアップ</summary>
+    <div class="sync-box">
+      <div class="sync-line">
+        <span class="badge">通常は端末内だけに保存</span>
+        <span class="badge">同期しなくても全機能利用可</span>
+      </div>
+      <div class="sync-line">
+        <button id="exportBtn">全メモをJSONで書き出す</button>
+        <label class="filelabel">JSONを読み込む
+          <input id="importFile" type="file" accept=".json,application/json" hidden>
+        </label>
+      </div>
+      <div class="hint">
+        このサイトはメモを利用中のブラウザに保存します。別のブラウザや端末とは自動同期しません。
+        以前のHTML版から移行する場合は、元のメモ帳で「全メモをJSONで書き出す」を選び、このサイトで「JSONを読み込む」を選んでください。
+        ブラウザのデータ消去や端末故障に備えて、定期的にJSONバックアップを保存してください。
+      </div>
+    </div>
+  </details>
+</main>
+
+<div id="toast"></div>
+
+<script>
+(() => {
+  const STORE_KEY = "memo_rescue_v2_store";
+  const THEME_KEY = "memo_rescue_v2_theme";
+  const MAX_HISTORY = 30;
+
+  const $ = id => document.getElementById(id);
+  const title = $("title"), memo = $("memo"), tabs = $("tabs");
+  const saveStatus = $("saveStatus"), chars = $("chars"), lines = $("lines"), updated = $("updated");
+
+  let saveTimer = null;
+  let snapshotTimer = null;
+  let store = loadStore();
+
+  function defaultStore(){
+    const id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
+    return {
+      activeId:id,
+      memos:[{id,title:"無題のメモ",body:"",updatedAt:new Date().toISOString(),history:[]}]
+    };
+  }
+
+  function loadStore(){
+    try{
+      const raw = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
+      if(raw && Array.isArray(raw.memos) && raw.memos.length) return raw;
+    }catch(e){}
+    return defaultStore();
+  }
+
+  function saveStore(){
+    localStorage.setItem(STORE_KEY, JSON.stringify(store));
+  }
+
+  function activeMemo(){
+    return store.memos.find(m=>m.id===store.activeId) || store.memos[0];
+  }
+
+  function fmt(iso){
+    return iso ? new Date(iso).toLocaleString("ja-JP") : "-";
+  }
+
+  function toast(msg){
+    const t=$("toast");
+    t.textContent=msg;
+    t.classList.add("show");
+    setTimeout(()=>t.classList.remove("show"),1500);
+  }
+
+  function applyTheme(theme){
+    document.documentElement.setAttribute("data-theme",theme);
+    localStorage.setItem(THEME_KEY,theme);
+  }
+
+  function updateStats(){
+    chars.textContent = memo.value.length;
+    lines.textContent = memo.value.length ? memo.value.split("\n").length : 1;
+  }
+
+  function renderEditor(){
+    const m = activeMemo();
+    store.activeId = m.id;
+    title.value = m.title || "";
+    memo.value = m.body || "";
+    updated.textContent = fmt(m.updatedAt);
+    updateStats();
+    renderTabs();
+    renderHistory();
+    saveStore();
+  }
+
+  function renderTabs(){
+    tabs.innerHTML="";
+    store.memos.forEach(m=>{
+      const el=document.createElement("div");
+      el.className="tab"+(m.id===store.activeId?" active":"");
+
+      const dot=document.createElement("span");
+      dot.className="tab-dot";
+
+      const txt=document.createElement("span");
+      txt.className="tab-title";
+      txt.textContent=m.title.trim() || "無題のメモ";
+
+      const close=document.createElement("span");
+      close.className="tab-close";
+      close.textContent="×";
+      close.title="削除";
+
+      el.onclick=e=>{
+        if(e.target===close) return;
+        flushCurrent();
+        store.activeId=m.id;
+        renderEditor();
+      };
+
+      close.onclick=e=>{
+        e.stopPropagation();
+        if(store.memos.length===1){
+          alert("最後の1つは削除できません。");
+          return;
+        }
+        if(!confirm(`「${m.title || "無題のメモ"}」を削除しますか？`)) return;
+        store.memos = store.memos.filter(x=>x.id!==m.id);
+        if(store.activeId===m.id) store.activeId=store.memos[0].id;
+        saveStore();
+        renderEditor();
+      };
+
+      el.append(dot,txt,close);
+      tabs.appendChild(el);
+    });
+  }
+
+  function flushCurrent(){
+    const m=activeMemo();
+    m.title = title.value.trim() || "無題のメモ";
+    m.body = memo.value;
+    m.updatedAt = new Date().toISOString();
+    updated.textContent=fmt(m.updatedAt);
+    saveStore();
+    renderTabs();
+    saveStatus.textContent="保存済み";
+    saveStatus.classList.add("ok");
+  }
+
+  function scheduleSave(){
+    updateStats();
+    saveStatus.textContent="保存中…";
+    saveStatus.classList.remove("ok");
+    clearTimeout(saveTimer);
+    saveTimer=setTimeout(flushCurrent,120);
+  }
+
+  function addSnapshot(manual=false){
+    flushCurrent();
+    const m=activeMemo();
+    const last=m.history?.[0];
+    if(!manual && last && last.body===m.body && last.title===m.title) return;
+
+    m.history = m.history || [];
+    m.history.unshift({
+      id:Date.now(),
+      title:m.title,
+      body:m.body,
+      savedAt:new Date().toISOString(),
+      manual
+    });
+    m.history=m.history.slice(0,MAX_HISTORY);
+    saveStore();
+    renderHistory();
+    if(manual) toast("履歴を保存しました");
+  }
+
+  function renderHistory(){
+    const box=$("history");
+    box.innerHTML="";
+    const arr=activeMemo().history || [];
+
+    if(!arr.length){
+      box.innerHTML='<div class="hint">まだ履歴はありません。</div>';
+      return;
+    }
+
+    arr.forEach(item=>{
+      const row=document.createElement("div");
+      row.className="hist";
+
+      const info=document.createElement("div");
+      info.innerHTML='<div class="preview"></div><small></small>';
+      info.querySelector(".preview").textContent=(item.body||"").replace(/\s+/g," ").slice(0,120) || "（空のメモ）";
+      info.querySelector("small").textContent=`${fmt(item.savedAt)}・${item.manual?"手動":"自動"}`;
+
+      const btn=document.createElement("button");
+      btn.textContent="復元";
+      btn.onclick=()=>{
+        addSnapshot(true);
+        const m=activeMemo();
+        m.title=item.title || "無題のメモ";
+        m.body=item.body || "";
+        m.updatedAt=new Date().toISOString();
+        saveStore();
+        renderEditor();
+        toast("履歴を復元しました");
+      };
+
+      row.append(info,btn);
+      box.appendChild(row);
+    });
+  }
+
+  function newMemo(){
+    flushCurrent();
+    const id=crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
+    store.memos.push({
+      id,
+      title:"無題のメモ",
+      body:"",
+      updatedAt:new Date().toISOString(),
+      history:[]
+    });
+    store.activeId=id;
+    saveStore();
+    renderEditor();
+    title.select();
+  }
+
+  function safeName(){
+    return (title.value.trim() || "memo")
+      .replace(/[\\/:*?"<>|]/g,"_").slice(0,60);
+  }
+
+  function download(name,content,type="text/plain"){
+    const blob=new Blob([content],{type:type+";charset=utf-8"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download=name;
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  }
+
+  function exportAll(){
+    flushCurrent();
+    const payload={
+      version:2,
+      exportedAt:new Date().toISOString(),
+      store
+    };
+    download(
+      "memo_rescue_backup.json",
+      JSON.stringify(payload,null,2),
+      "application/json"
+    );
+  }
+
+  function importAll(file){
+    const r=new FileReader();
+    r.onload=()=>{
+      try{
+        const data=JSON.parse(r.result);
+        const incoming=data.store;
+        if(!incoming || !Array.isArray(incoming.memos) || !incoming.memos.length) throw new Error();
+
+        if(!confirm("現在のメモを、読み込んだバックアップで置き換えますか？")) return;
+        store=incoming;
+        saveStore();
+        renderEditor();
+        toast("バックアップを読み込みました");
+      }catch(e){
+        alert("Memo Rescue v2 のバックアップとして読み込めません。");
+      }
+    };
+    r.readAsText(file);
+  }
+
+  title.addEventListener("input",scheduleSave);
+  memo.addEventListener("input",scheduleSave);
+
+  $("newMemoBtn").onclick=newMemo;
+  $("snapshotBtn").onclick=()=>addSnapshot(true);
+
+  $("downloadTxtBtn").onclick=()=>{
+    flushCurrent();
+    download(`${safeName()}.txt`, memo.value);
+  };
+
+  $("downloadMdBtn").onclick=()=>{
+    flushCurrent();
+    const head=title.value.trim()?`# ${title.value.trim()}\n\n`:"";
+    download(`${safeName()}.md`,head+memo.value,"text/markdown");
+  };
+
+  $("exportBtn").onclick=exportAll;
+  $("importFile").onchange=e=>e.target.files[0] && importAll(e.target.files[0]);
+
+  $("themeBtn").onclick=()=>{
+    const cur=document.documentElement.getAttribute("data-theme") || "dark";
+    applyTheme(cur==="dark"?"light":"dark");
+  };
+
+  document.addEventListener("keydown",e=>{
+    if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==="s"){
+      e.preventDefault();
+      addSnapshot(true);
+    }
+    if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==="n"){
+      e.preventDefault();
+      newMemo();
+    }
+  });
+
+  window.addEventListener("beforeunload",flushCurrent);
+
+  const savedTheme=localStorage.getItem(THEME_KEY);
+  if(savedTheme){
+    applyTheme(savedTheme);
+  }else{
+    applyTheme(window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+  }
+
+  renderEditor();
+  saveStatus.textContent="保存済み";
+  saveStatus.classList.add("ok");
+
+  snapshotTimer=setInterval(()=>addSnapshot(false),30000);
+})();
+</script>
+</body>
+</html>
